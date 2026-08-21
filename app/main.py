@@ -1,3 +1,4 @@
+from typing import Literal
 import os
 import uuid
 
@@ -5,7 +6,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from openai import OpenAI
 from pydantic import BaseModel, Field
-
+from app.guardrails import check_request
 
 load_dotenv(dotenv_path=".env")
 
@@ -18,7 +19,7 @@ app = FastAPI(
 
 class AskRequest(BaseModel):
     question: str = Field(min_length=3, max_length=2000)
-    level: str = "beginner"
+    level: Literal["beginner", "intermediate", "advanced"] = "beginner"
 
 
 class AskResponse(BaseModel):
@@ -42,8 +43,25 @@ def ask_python_tutor(request: AskRequest):
 
     activity = [
         "Received the learner's Python question",
-        "Searching only official Python documentation",
     ]
+
+    guardrail_result = check_request(request.question)
+
+    if guardrail_result:
+        activity.append(
+            f"Blocked unsafe request: "
+            f"{guardrail_result['category']}"
+        )
+        activity.append("Returned a safe response without model access")
+
+        return AskResponse(
+            trace_id=trace_id,
+            answer=guardrail_result["answer"],
+            sources=[],
+            activity=activity,
+        )
+
+    activity.append("Searching only official Python documentation")
 
     api_key = os.getenv("OPENAI_API_KEY")
     model = os.getenv("OPENAI_MODEL", "gpt-5.6")
