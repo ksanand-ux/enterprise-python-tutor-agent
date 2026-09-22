@@ -19,6 +19,13 @@ client = TestClient(app)
 
 
 def run_evaluations(limit):
+    tutor_key = os.getenv("TUTOR_ACCESS_KEY")
+
+    if not tutor_key:
+        raise RuntimeError(
+            "Set TUTOR_ACCESS_KEY before running evaluations"
+        )
+
     run_id = str(uuid.uuid4())
     started_at = datetime.now(timezone.utc).isoformat()
     model = os.getenv("OPENAI_MODEL", "gpt-5.6")
@@ -29,6 +36,7 @@ def run_evaluations(limit):
 
         response = client.post(
             "/ask",
+            headers={"X-Tutor-Key": tutor_key},
             json={
                 "question": scenario["question"],
                 "level": scenario["level"],

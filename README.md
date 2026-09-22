@@ -2,281 +2,168 @@
 
 [![CI](https://github.com/ksanand-ux/enterprise-python-tutor-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/ksanand-ux/enterprise-python-tutor-agent/actions/workflows/ci.yml)
 
-A production-shaped Generative AI application that teaches Python using evidence retrieved only from the official Python documentation.
+A Python teaching API with official-document search, shared-key access control, pre-model guardrails, evaluation reports and a Docker deployment on Render.
 
-The project demonstrates Python backend engineering, grounded generation, pre-model safety guardrails, agent evaluation, tracing, Docker and CI/CD.
+The project demonstrates how to build and verify an AI application around an existing model. It does not train a model or execute user code.
 
-## Problem
+## I. Purpose and request flow
 
-A normal LLM can produce a convincing Python explanation without reliable evidence. It may also follow prompt-injection attempts, disclose sensitive information, or regress after a prompt or model change.
+An AI tutor needs more than an answer: callers need evidence, and the application needs controls around access and model use.
 
-This application adds explicit controls around the model:
+1. Uvicorn receives the HTTP request; FastAPI selects `/ask`.
+2. Pydantic validates the question and learning level before the handler runs.
+3. The handler checks `X-Tutor-Key` against the server's `TUTOR_ACCESS_KEY` using `secrets.compare_digest`.
+4. A local guardrail checks for configured unsafe-request patterns. Matching requests receive a refusal without model access.
+5. Allowed requests call the OpenAI Responses API with required web search restricted to `docs.python.org`.
+6. The application returns the answer, source citations, a trace ID and activity entries.
 
-- Restricted official-document search
-- Request validation
-- Pre-model safety checks
-- Citations and visible activity events
-- Regression scenarios and evaluation reports
-- Automated tests
-- Reproducible container builds
-- Continuous integration
+`GET /health` is public and reports basic application responsiveness. It does not verify model credentials or answer quality.
 
-## Architecture
+## II. Verified milestone
 
-```mermaid
-flowchart LR
-    U[Learner] --> API[FastAPI /ask]
-    API --> V[Request validation]
-    V --> G[Pre-model guardrail]
+Observed on 22 September 2026:
 
-    G -->|Blocked| S[Safe response]
-    G -->|Allowed| O[OpenAI Responses API]
+| Check | Result |
+|---|---|
+| Automated test suite | 14 passed |
+| Local Docker image | `python-tutor-agent:0.2.2` built and smoke-tested |
+| Protected cloud revision | `e5fe987` deployed on Render |
+| Cloud request without caller key, after server configuration | 403 |
+| Authorised unsafe cloud request | 200 with refusal; no model access reported |
+| Authorised genuine cloud question | 200 with an answer and official Python citation |
+| Live evaluation after runner access-key update | 1 scenario passed all four configured checks |
 
-    O --> W[Web search restricted to docs.python.org]
-    W --> A[Grounded tutorial answer]
-    A --> T[Trace ID, citations and activity]
-    S --> T
+Public health endpoint: [enterprise-python-tutor-agent.onrender.com/health](https://enterprise-python-tutor-agent.onrender.com/health).
 
-    E[Evaluation runner] --> API
-    T --> Q[Quality evaluator]
-    Q --> R[Structured JSON report]
+These results establish the demonstrated cases. They are not a security audit or a guarantee of answer quality on arbitrary questions.
 
-    C[GitHub Actions] --> X[Compile]
-    X --> Y[Run tests]
-    Y --> D[Build Docker image]
-```
+## III. Local setup — Ubuntu / WSL
 
-## Request flow
-
-1. FastAPI validates the question and learning level.
-2. A local guardrail checks for prompt injection, secret extraction and destructive requests.
-3. Blocked requests return safely without calling the model.
-4. Allowed requests call the OpenAI Responses API.
-5. Web search is restricted to `docs.python.org`.
-6. The API returns a tutorial answer, citations, trace ID and visible activity.
-7. The evaluation pipeline checks expected and forbidden behaviour.
-
-## Capabilities
-
-- FastAPI `/health` and `/ask` endpoints
-- Pydantic request validation
-- Beginner, intermediate and advanced learning levels
-- OpenAI Responses API integration
-- Required web search restricted to official Python documentation
-- Grounded answers and source citations
-- Unique trace IDs and visible activity events
-- Pre-model secret-exfiltration guardrail
-- Prompt-injection and destructive-action blocking
-- Fifteen regression evaluation scenarios
-- Live evaluation runner with latency and success/failure reporting
-- Offline report re-evaluation without additional API calls
-- Eleven automated tests
-- Fake OpenAI client for deterministic tests
-- Non-root Docker runtime and container health check
-- GitHub Actions compile, test and Docker-build pipeline
-
-## Evaluation evidence
-
-The scenario bank covers:
-
-- Supported Python questions
-- Unsupported or fictional claims
-- Incorrect premises
-- Beginner and advanced Python concepts
-- Required official citations
-- Prompt injection
-- API-key extraction
-- Destructive file requests
-- Forbidden output checks
-
-The current sample evaluation contains:
-
-- 15 scenarios
-- 15 passing evaluations after evaluator calibration
-- Trace IDs
-- Per-request latency
-- Sources and visible activity
-- Detailed check results
-
-See:
-
-```text
-reports/sample-evaluation-report.json
-```
-
-Run one live evaluation:
+Use Python 3.12, Git and an OpenAI API account with access to the configured model and tools. Docker is needed for the container section. Commands run from the repository root.
 
 ```bash
-python -m evals.run_evals --limit 1
-```
-
-Run all fifteen:
-
-```bash
-python -m evals.run_evals --limit 15
-```
-
-Live evaluations call the OpenAI API and consume API credit.
-
-Re-evaluate the latest stored report without calling OpenAI:
-
-```bash
-python -m evals.recheck_report
-```
-
-## Run locally
-
-Create and activate a virtual environment:
-
-```bash
-python3 -m venv .venv
+git clone https://github.com/ksanand-ux/enterprise-python-tutor-agent.git
+cd enterprise-python-tutor-agent
+python3.12 -m venv .venv
 source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-python -m pip install -r requirements.txt
 python -m pip install -r requirements-dev.txt
 ```
 
-Create `.env` from `.env.example` and provide a restricted OpenAI API key.
+If you already have a checkout, use that directory instead of cloning again. The development requirements include runtime requirements.
 
-Start the API:
+Copy `.env.example` to `.env` if `.env` does not already exist:
+
+```bash
+cp -n .env.example .env
+```
+
+Edit your private `.env` and fill in these settings:
+
+| Setting | Purpose |
+|---|---|
+| `OPENAI_API_KEY` | Provider credential used only by the application |
+| `OPENAI_MODEL` | Model name; the recorded live evaluation used `gpt-5.6` |
+| `TUTOR_ACCESS_KEY` | Private shared key required from callers of `/ask` |
+
+Generate a tutor key once, then store its output privately in `.env`:
+
+```bash
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Every invocation generates a different key. Do not commit real credentials; `.env.example` contains blank key values. `.env` is excluded from Git and the Docker build context.
+
+Start the local API:
 
 ```bash
 python -m uvicorn app.main:app --reload
 ```
 
-Open the interactive API documentation:
+Open [local API documentation](http://127.0.0.1:8000/docs). For `/ask`, supply the tutor key in the `x-tutor-key` header field.
 
-```text
-http://127.0.0.1:8000/docs
-```
+## IV. Send a request
 
-## Example request
+In a second Ubuntu terminal, run this line first:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "Why are Python lists mutable?",
-    "level": "beginner"
-  }'
+read -rsp 'Tutor access key: ' TUTOR_CALL_KEY
 ```
 
-## Run tests
+Press Enter after the command, then paste the same tutor key used by the local server and press Enter again. Input is hidden. Keep the variable name unchanged; do not put the key into the command itself.
+
+Then run:
+
+```bash
+printf 'X-Tutor-Key: %s\n' "$TUTOR_CALL_KEY" | curl -sS -i \
+  http://127.0.0.1:8000/ask \
+  -H @- \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"What is a Python list?","level":"beginner"}'
+unset TUTOR_CALL_KEY
+```
+
+For the deployed service, replace the request URL with `https://enterprise-python-tutor-agent.onrender.com/ask` and use its configured tutor key. Do not send your OpenAI key as the caller header. Genuine model requests consume API credit.
+
+For a structurally valid request: missing server tutor-key configuration returns 503; missing or incorrect caller credentials return 403. Invalid request bodies can return 422 before the access check. A recognised unsafe request with a correct key returns a 200 refusal.
+
+## V. Tests and evaluations
+
+Run deterministic automated tests:
 
 ```bash
 python -m pytest -q
 ```
 
-Current result:
+The 14 tests cover health, request validation, response structure, source restriction, evaluator behaviour, guardrail refusals and access rejection. Model clients are replaced with test doubles where needed; tests do not require paid model calls. Rejection tests also check that downstream tutor functions are not reached.
 
-```text
-11 passed
-```
-
-The tests verify:
-
-- Health endpoint
-- Grounded tutor response structure
-- Official source restriction
-- Positive and negative evaluation behaviour
-- Prompt-injection blocking
-- Secret-exfiltration blocking
-- Destructive-action blocking
-- Invalid request rejection
-- Model calls are avoided for blocked requests
-
-## Docker
-
-Build:
+Run one live evaluation after configuring the private local `.env`:
 
 ```bash
-docker build -t python-tutor-agent:0.2.0 .
+python -m evals.run_evals --limit 1
 ```
 
-Run:
+The runner uses FastAPI's `TestClient` to call the local application directly, including the tutor-key header. It does not call the Render URL, and it does not require a separately running Uvicorn process. Allowed questions use the real OpenAI API and consume credit.
+
+The scenario bank has 15 cases. Run `python -m evals.run_evals --limit 15` only when you intend a full live evaluation. Reports are saved as `reports/eval-<run-id>.json`; inspect `passed`, `failed` and each result. The current runner does not return a nonzero process exit code merely because an evaluation fails.
+
+The latest reviewed run, `cd66626b-d5f3-4390-8567-a31f2a827029`, contains one passing scenario with 8233.63 ms latency. Its checks cover expected terms, forbidden terms, sources and citations. These checks are useful regression signals, not a full semantic correctness assessment.
+
+`reports/sample-evaluation-report.json` is historical sample evidence; it is separate from the latest one-scenario run. After generating a local evaluation report, recheck the latest saved report without another model call:
 
 ```bash
+python -m evals.recheck_report
+```
+
+## VI. Docker and cloud deployment
+
+Build and start the packaged application:
+
+```bash
+docker build -t python-tutor-agent:0.2.2 .
 docker run --rm \
   --name python-tutor-agent \
-  -p 8000:8000 \
   --env-file .env \
-  python-tutor-agent:0.2.0
+  -e PORT=10000 \
+  -p 127.0.0.1:10000:10000 \
+  python-tutor-agent:0.2.2
 ```
 
-The API key is injected at runtime and excluded from Git and the Docker image.
+Use port 10000 in your local health and `/ask` requests for this container. Credentials are supplied at runtime. The container runs as a non-root user; its startup command and health check use `PORT`, defaulting to 8000.
 
-## CI/CD
+For Render, connect this repository as a Docker web service. Set `TUTOR_ACCESS_KEY`, `OPENAI_API_KEY` and `OPENAI_MODEL` as environment variables. Set **Health Check Path** to `/health`, save and deploy. The health-check field takes a path, not a full URL. Keep the shared tutor key private when demonstrating the service.
 
-GitHub Actions runs on pushes to `main` and on pull requests.
+GitHub Actions installs dependencies, compiles Python, runs tests and builds the image on pushes to `main` and pull requests. Check CI for the exact commit before treating a revision as verified. CI success and Render deployment status are separate checks.
 
-The pipeline:
+## VII. Security boundaries and limitations
 
-1. Checks out the repository
-2. Installs Python 3.12
-3. Installs application and test dependencies
-4. Compiles the Python source
-5. Runs the automated test suite
-6. Builds the Docker image
+- Shared-key access control is implemented; per-user identity, tenant isolation and rate limiting are not.
+- Missing tutor-key configuration fails closed. The access check precedes guardrails and paid model requests inside the handler.
+- Pattern-based guardrails block the tested cases; they do not guarantee protection against every prompt injection.
+- Secrets stay outside source control and are not included in prompts. Use restricted provider permissions suitable for the required API operations.
+- Official-domain retrieval is configured, but the documentation version is not pinned. The latest evaluation cited Python 3.15 prerelease documentation while the application runtime uses Python 3.12.
+- Token usage and cost fields remain unpopulated. Trace IDs and activity describe each response; durable central monitoring is not implemented.
+- The application does not execute or modify user code. Sandboxed execution, persistent memory and more extensive security evaluation are future work.
 
-## Security decisions
+## VIII. Interview summary
 
-- The OpenAI key is stored outside source control.
-- `.env` is excluded from Git and Docker build context.
-- The API key uses restricted OpenAI permissions.
-- Unsafe requests are blocked before model access.
-- Blocked requests do not incur model cost.
-- The container runs as a non-root user.
-- Model exceptions are returned without exposing internal error details.
-- Web search is limited to `docs.python.org`.
-
-## Interview discussion
-
-This project demonstrates why evaluating an agent differs from testing one LLM answer.
-
-The system evaluates:
-
-- Final-answer requirements
-- Source grounding
-- Forbidden content
-- Security-policy behaviour
-- Whether a model call should occur
-- Trace and activity evidence
-- Latency
-- Final HTTP behaviour
-
-A real failure discovered during development was an inaccurate activity event claiming documentation search had occurred for a blocked request. The Docker smoke test exposed it, the event ordering was corrected, and an automated regression assertion was added.
-
-Another failure showed that an evaluator can be too literal: correct answers using “No” or “fictional built-in” failed exact keyword checks. The evaluator was changed to accept controlled groups of equivalent terms, and stored responses were re-evaluated without additional model calls.
-
-## Current limitations
-
-- Token usage and estimated cost fields are reserved but not yet populated.
-- Authentication and user isolation are not implemented.
-- Documentation retrieval currently uses live official-domain web search rather than a versioned vector index.
-- The application does not execute or modify user code.
-- Durable workflow state and approval checkpoints are not yet implemented.
-- Public cloud deployment is pending.
-
-## Roadmap
-
-Immediate interview demonstrations:
-
-- LangGraph workflow orchestration
-- LangChain document loading, chunking and retrieval
-- CrewAI researcher–tutor–reviewer comparison
-
-Later production upgrades:
-
-- Durable LangGraph state and retries
-- Human approval before modifications
-- Sandboxed Python execution
-- Persistent memory
-- MCP server and client
-- Authentication and tenant isolation
-- Vector-database RAG
-- Token and cost measurement
-- Advanced monitoring and cloud scaling
+“I built and deployed a Python tutor API around an existing model. It validates requests, requires a shared access key, checks unsafe-request patterns before model access, and searches official Python documentation. I tested the control flow with fake model clients, verified the Docker container and cloud endpoints, and recorded a live evaluation. I can explain both the controls demonstrated and their limits.”
