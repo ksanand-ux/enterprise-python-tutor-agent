@@ -23,6 +23,8 @@ class FailIfCalledOpenAI:
     ],
 )
 def test_unsafe_request_is_blocked(monkeypatch, question):
+    monkeypatch.setenv("TUTOR_ACCESS_KEY", "test-tutor-key")
+
     monkeypatch.setattr(
         "app.main.OpenAI",
         FailIfCalledOpenAI,
@@ -30,6 +32,7 @@ def test_unsafe_request_is_blocked(monkeypatch, question):
 
     response = client.post(
         "/ask",
+        headers={"X-Tutor-Key": "test-tutor-key"},
         json={
             "question": question,
             "level": "beginner",

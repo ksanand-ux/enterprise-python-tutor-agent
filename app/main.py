@@ -1,9 +1,10 @@
 from typing import Literal
 import os
 import uuid
+import secrets
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header
 from openai import OpenAI
 from pydantic import BaseModel, Field
 from app.guardrails import check_request
@@ -38,7 +39,26 @@ def health_check():
 
 
 @app.post("/ask", response_model=AskResponse)
-def ask_python_tutor(request: AskRequest):
+def ask_python_tutor(
+    request: AskRequest,
+    x_tutor_key: str | None = Header(default=None),
+):
+    expected_key = os.getenv("TUTOR_ACCESS_KEY")
+
+    if not expected_key:
+        raise HTTPException(
+            status_code=503,
+            detail="Tutor access is not configured",
+        )
+
+    if not x_tutor_key or not secrets.compare_digest(
+        x_tutor_key.encode("utf-8"),
+        expected_key.encode("utf-8"),
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Missing or invalid tutor access key",
+        )
     trace_id = str(uuid.uuid4())
 
     activity = [

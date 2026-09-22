@@ -54,11 +54,13 @@ def test_health_check():
 
 
 def test_ask_python_tutor(monkeypatch):
+    monkeypatch.setenv("TUTOR_ACCESS_KEY", "test-tutor-key")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-key-for-automated-test")
     monkeypatch.setattr("app.main.OpenAI", FakeOpenAI)
 
     response = client.post(
         "/ask",
+        headers={"X-Tutor-Key": "test-tutor-key"},
         json={
             "question": "What is a Python list?",
             "level": "beginner",
