@@ -38,7 +38,7 @@ Acceptance evidence: requests finish or fail within the agreed deadline; failure
 - [x] Evaluation CLI failure exit status merged in `9c0ba03` (PR #1, 23 September 2026). Five regression cases passed CI before merge. Reports are retained; promotion still needs to invoke the check.
 - [ ] Establish a representative, versioned evaluation set and acceptance thresholds. Rerun the full existing scenario set for the release and inspect failures rather than loosening checks just to obtain a pass.
 - [ ] Make release promotion depend on the required evaluation result. Paid live evaluations should be deliberate, budgeted release checks, not implicit in every PR.
-- [ ] Verify the source-validation change in this branch: evaluation requires every citation URL to use HTTPS and the exact expected hostname. Tests cover lookalike hosts, misleading paths/query strings, user information, malformed URLs and mixed trusted/untrusted sources. This checks evaluation results; it does not add runtime response filtering.
+- [x] Source-validation regression suite passed in PR #2 on 23 September 2026 (CI run `35867405715`): evaluation requires every citation URL to use HTTPS and the exact expected hostname. Tests cover lookalike hosts, misleading paths/query strings, user information, malformed URLs and mixed trusted/untrusted sources. This checks evaluation results; it does not add runtime response filtering.
 - [ ] Test instructions injected in user input and retrieved content; define how missing citations and incomplete model responses are handled.
 - [ ] Scan dependencies, the container and repository secrets; triage findings and record fixes or reasoned exceptions. A clean scan is not proof of security.
 
@@ -72,4 +72,4 @@ For each checkbox record: implementation commit, test or drill, observed result 
 | 1 | Evaluation command returns failure when any case fails. | Automation can detect a failed evaluation. |
 | 2 | Evaluate parsed citation hosts instead of searching URL text. | A misleading link must not pass as official documentation. |
 
-Step 1 is merged. Step 2 is being verified in this branch. Remaining controls above are still open; passing these checks does not establish full production readiness.
+Step 1 is merged. Step 2 passed automated tests and Docker build in PR #2; see the PR for merge status. Remaining controls above are still open; passing these checks does not establish full production readiness.
