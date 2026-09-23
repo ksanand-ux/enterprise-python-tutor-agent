@@ -1,16 +1,16 @@
-FROM python:3.12-slim
+FROM python:3.12-alpine
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
 WORKDIR /app
 
-RUN addgroup --system app && \
-    adduser --system --ingroup app app
+RUN apk upgrade --no-cache && \
+    addgroup -S app && adduser -S -G app app
 
 COPY requirements.lock .
 
-RUN pip install --no-cache-dir --require-hashes -r requirements.lock
+RUN pip install --no-cache-dir --only-binary=:all: --require-hashes -r requirements.lock
 
 COPY app ./app
 COPY scripts ./scripts
