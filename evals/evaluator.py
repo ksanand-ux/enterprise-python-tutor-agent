@@ -1,3 +1,26 @@
+from urllib.parse import urlsplit
+
+
+def is_expected_source(url, expected_domain):
+    """Accept only HTTPS URLs on the exact expected host."""
+    if not isinstance(url, str) or not url:
+        return False
+    if any(character.isspace() or ord(character) < 32 for character in url):
+        return False
+
+    try:
+        parsed = urlsplit(url)
+        return (
+            parsed.scheme == "https"
+            and parsed.hostname == expected_domain.lower()
+            and parsed.username is None
+            and parsed.password is None
+            and parsed.port in (None, 443)
+        )
+    except ValueError:
+        return False
+
+
 def evaluate_response(scenario, answer, sources):
     answer_lower = answer.lower()
 
@@ -20,8 +43,11 @@ def evaluate_response(scenario, answer, sources):
         for term in scenario.get("forbidden_terms", [])
     )
 
-    source_domain_present = any(
-        scenario["expected_source_domain"] in source.get("url", "")
+    sources_are_official = bool(sources) and all(
+        is_expected_source(
+            source.get("url", ""),
+            scenario["expected_source_domain"],
+        )
         for source in sources
     )
 
@@ -30,7 +56,7 @@ def evaluate_response(scenario, answer, sources):
     )
 
     source_requirement_met = (
-        not scenario["requires_citation"] or source_domain_present
+        not scenario["requires_citation"] or sources_are_official
     )
 
     checks = {
