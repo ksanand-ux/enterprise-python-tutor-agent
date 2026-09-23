@@ -12,7 +12,7 @@ Status: implementation candidate. This document does not certify a live producti
 
 ## II. Prepare private configuration
 
-1. Use the reviewed Git revision and Python 3.12. Install the hash-locked runtime with `python -m pip install --require-hashes -r requirements.lock`, then development dependencies with `python -m pip install -r requirements-dev.txt -c requirements.lock`.
+1. Use the reviewed Git revision and Python 3.12. Install the hash-locked runtime with `python -m pip install --require-hashes -r requirements.lock`, then development dependencies with `python -m pip install --require-hashes -r requirements-dev.lock`.
 2. Copy `.env.pilot.example` to a new private `.env.pilot`. Keep `TUTOR_MODE=pilot`. Demo mode preserves the original shared-key workflow and does not enforce Redis quotas; it is not the pilot configuration.
 3. Run `python -m scripts.pilot_admin issue --caller learner-01` on your trusted machine. Save the printed caller key privately. Place only the printed ID/hash entry in `TUTOR_CALLERS_JSON`. Repeat for each learner and combine entries in one JSON object. Do not commit keys or send them in screenshots.
 4. Set provider credentials/model privately. A caller key is separate from the provider key. Production must not accept the old shared `TUTOR_ACCESS_KEY`.
