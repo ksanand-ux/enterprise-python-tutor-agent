@@ -7,6 +7,8 @@ client = TestClient(app)
 
 
 class FakeResponse:
+    status = "completed"
+    usage = None
     output_text = "A grounded Python tutorial answer."
 
     def model_dump(self):
@@ -31,7 +33,7 @@ class FakeResponse:
 
 
 class FakeResponses:
-    def create(self, **kwargs):
+    async def create(self, **kwargs):
         assert kwargs["tools"][0]["filters"]["allowed_domains"] == [
             "docs.python.org"
         ]
@@ -39,8 +41,14 @@ class FakeResponses:
 
 
 class FakeOpenAI:
-    def __init__(self, api_key):
+    def __init__(self, api_key, **kwargs):
         self.responses = FakeResponses()
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *args):
+        return False
 
 
 def test_health_check():

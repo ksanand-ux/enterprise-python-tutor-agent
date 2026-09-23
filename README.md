@@ -1,5 +1,8 @@
 # Enterprise Python Tutor Agent
 
+> **Invite-only pilot candidate:** new per-caller credentials, shared Redis quotas, provider limits, safe logs and release checks are described in [the operator checklist](docs/pilot-operations.md). The historical demo instructions below use default `TUTOR_MODE=demo`. Pilot deployment requires `TUTOR_MODE=pilot` and its private configuration; it is not yet a verified production launch.
+
+
 [![CI](https://github.com/ksanand-ux/enterprise-python-tutor-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/ksanand-ux/enterprise-python-tutor-agent/actions/workflows/ci.yml)
 
 A Python teaching API with official-document search, shared-key access control, pre-model guardrails, evaluation reports and a Docker deployment on Render.
@@ -156,12 +159,12 @@ GitHub Actions installs dependencies, compiles Python, runs tests and builds the
 
 ## VII. Security boundaries and limitations
 
-- Shared-key access control is implemented; per-user identity, tenant isolation and rate limiting are not.
+- Demo mode uses a shared access key. Pilot mode adds individual caller keys and Redis usage limits; public signup and tenant-owned data are outside this release.
 - Missing tutor-key configuration fails closed. The access check precedes guardrails and paid model requests inside the handler.
 - Pattern-based guardrails block the tested cases; they do not guarantee protection against every prompt injection.
 - Secrets stay outside source control and are not included in prompts. Use restricted provider permissions suitable for the required API operations.
 - Official-domain retrieval is configured, but the documentation version is not pinned. The latest evaluation cited Python 3.15 prerelease documentation while the application runtime uses Python 3.12.
-- Token usage and cost fields remain unpopulated. Trace IDs and activity describe each response; durable central monitoring is not implemented.
+- Historical evaluation report token/cost fields remain unpopulated. Pilot server logs now record provider token usage and optional token-only cost estimates; external monitoring, alerts and retention still require configuration.
 - The application does not execute or modify user code. Sandboxed execution, persistent memory and more extensive security evaluation are future work.
 
 ## VIII. Interview summary
@@ -170,3 +173,4 @@ GitHub Actions installs dependencies, compiles Python, runs tests and builds the
 
 
 See [production readiness](docs/production-readiness.md) for the proposed pilot requirements and the remaining verification gates.
+

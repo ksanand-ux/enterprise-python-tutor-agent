@@ -4,3 +4,6 @@ __pycache__/
 .pytest_cache/
 *.pyc
 reports/eval-*.json
+.env*
+!.env.example
+!.env.pilot.example

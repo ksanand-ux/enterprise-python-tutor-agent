@@ -1,0 +1,32 @@
+# Local staging/recovery practice. Cloud needs its own durable Redis service.
+services:
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "always", "--maxmemory", "128mb", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - usage-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  tutor:
+    build: .
+    env_file: .env.pilot
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PORT: "10000"
+    ports:
+      - "127.0.0.1:10000:10000"
+    depends_on:
+      redis:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+volumes:
+  usage-data:

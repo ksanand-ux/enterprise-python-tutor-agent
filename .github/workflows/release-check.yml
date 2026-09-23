@@ -1,0 +1,49 @@
+name: Release evaluation
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_paid_calls:
+        description: "Run all 15 scenarios; allowed requests consume OpenAI credit"
+        type: boolean
+        default: false
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: tutor-release
+    steps:
+      - name: Require explicit paid evaluation selection
+        run: test '${{ inputs.confirm_paid_calls }}' = 'true'
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install -r requirements-dev.txt -c requirements.lock
+      - name: Evaluate this exact revision
+        env:
+          TUTOR_MODE: demo
+          TUTOR_ACCESS_KEY: release-evaluation-only
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL }}
+        run: |
+          test -n "$OPENAI_API_KEY"
+          test -n "$OPENAI_MODEL"
+          python -m evals.run_evals --limit 15
+      - name: Preserve evaluation evidence even after failure
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluations-${{ github.sha }}
+          path: reports/eval-*.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Record eligible revision
+        run: echo "Evaluation passed for $GITHUB_SHA. Deploy only after its CI and operational checks pass." >> "$GITHUB_STEP_SUMMARY"
