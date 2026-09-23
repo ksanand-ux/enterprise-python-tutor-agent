@@ -35,10 +35,10 @@ Acceptance evidence: requests finish or fail within the agreed deadline; failure
 
 ## IV. Evaluation and application security
 
-- [ ] Merge and verify the evaluation CLI change: a failed evaluation produces a nonzero exit code while retaining its report. The draft change is not yet a deployment gate by itself.
+- [x] Evaluation CLI failure exit status merged in `9c0ba03` (PR #1, 23 September 2026). Five regression cases passed CI before merge. Reports are retained; promotion still needs to invoke the check.
 - [ ] Establish a representative, versioned evaluation set and acceptance thresholds. Rerun the full existing scenario set for the release and inspect failures rather than loosening checks just to obtain a pass.
 - [ ] Make release promotion depend on the required evaluation result. Paid live evaluations should be deliberate, budgeted release checks, not implicit in every PR.
-- [ ] Fix source validation: compare parsed HTTPS hostnames, not substrings such as `docs.python.org` appearing anywhere in a URL. Test lookalike hosts and misleading URL paths/query strings.
+- [ ] Verify the source-validation change in this branch: evaluation requires every citation URL to use HTTPS and the exact expected hostname. Tests cover lookalike hosts, misleading paths/query strings, user information, malformed URLs and mixed trusted/untrusted sources. This checks evaluation results; it does not add runtime response filtering.
 - [ ] Test instructions injected in user input and retrieved content; define how missing citations and incomplete model responses are handled.
 - [ ] Scan dependencies, the container and repository secrets; triage findings and record fixes or reasoned exceptions. A clean scan is not proof of security.
 
@@ -65,4 +65,11 @@ Acceptance evidence: known negative cases fail for the expected reason; release 
 
 For each checkbox record: implementation commit, test or drill, observed result and date. The application is ready for the defined pilot only when its required gates pass. Larger audiences, sensitive data or additional tools require a fresh review of scope and controls.
 
-The first proposed change is the evaluation exit-status fix with five regression cases. It does not claim to implement authentication, quotas, monitoring or the other remaining controls.
+## Short debrief log
+
+| Step | Change | Why |
+| --- | --- | --- |
+| 1 | Evaluation command returns failure when any case fails. | Automation can detect a failed evaluation. |
+| 2 | Evaluate parsed citation hosts instead of searching URL text. | A misleading link must not pass as official documentation. |
+
+Step 1 is merged. Step 2 is being verified in this branch. Remaining controls above are still open; passing these checks does not establish full production readiness.
