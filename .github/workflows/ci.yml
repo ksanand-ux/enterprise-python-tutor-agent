@@ -2,8 +2,7 @@ name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
 
 permissions:
@@ -12,28 +11,54 @@ permissions:
 jobs:
   test-and-build:
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      REDIS_TEST_URL: redis://localhost:6379/15
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-
-      - name: Install dependencies
+      - name: Install locked runtime and test dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install -r requirements-dev.txt
-
-      - name: Compile Python
-        run: python -m compileall -q app evals
-
-      - name: Run automated tests
-        run: python -m pytest -q
-
+          python -m pip install --require-hashes -r requirements.lock
+          python -m pip install --require-hashes -r requirements-dev.lock
+      - name: Compile and test with a real Redis service
+        run: |
+          python -m compileall -q app evals scripts
+          python -m pytest -q
+      - name: Audit runtime dependencies
+        run: pip-audit --progress-spinner off -r requirements.lock --no-deps --disable-pip
+      - name: Scan repository history for secrets
+        run: docker run --rm -v "$PWD:/repo" ghcr.io/gitleaks/gitleaks:v8.30.1 git /repo --redact
       - name: Build Docker image
         run: docker build -t python-tutor-agent:ci .
+      - name: Smoke-test the packaged API
+        env:
+          TUTOR_CALL_KEY: ci-smoke-key
+        run: |
+          docker run -d --name tutor-ci -e TUTOR_ACCESS_KEY=ci-smoke-key -p 127.0.0.1:8000:8000 python-tutor-agent:ci
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8000/health >/dev/null; then break; fi
+            sleep 1
+          done
+          python -m scripts.smoke http://127.0.0.1:8000
+      - name: Scan image vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: python-tutor-agent:ci
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: false
+      - name: Stop test container
+        if: always()
+        run: docker rm -f tutor-ci || true
