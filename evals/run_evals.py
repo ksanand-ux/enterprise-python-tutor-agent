@@ -118,7 +118,7 @@ def run_evaluations(limit):
     return report
 
 
-if __name__ == "__main__":
+def main(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--limit",
@@ -126,5 +126,10 @@ if __name__ == "__main__":
         default=1,
         choices=range(1, 16),
     )
-    arguments = parser.parse_args()
-    run_evaluations(arguments.limit)
+    arguments = parser.parse_args(argv)
+    report = run_evaluations(arguments.limit)
+    return 1 if report["failed"] else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

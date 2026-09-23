@@ -114,7 +114,7 @@ Run deterministic automated tests:
 python -m pytest -q
 ```
 
-The 14 tests cover health, request validation, response structure, source restriction, evaluator behaviour, guardrail refusals and access rejection. Model clients are replaced with test doubles where needed; tests do not require paid model calls. Rejection tests also check that downstream tutor functions are not reached.
+The automated tests cover health, request validation, response structure, source restriction, evaluator behaviour, guardrail refusals and access rejection. Model clients are replaced with test doubles where needed; tests do not require paid model calls. Rejection tests also check that downstream tutor functions are not reached.
 
 Run one live evaluation after configuring the private local `.env`:
 
@@ -124,7 +124,7 @@ python -m evals.run_evals --limit 1
 
 The runner uses FastAPI's `TestClient` to call the local application directly, including the tutor-key header. It does not call the Render URL, and it does not require a separately running Uvicorn process. Allowed questions use the real OpenAI API and consume credit.
 
-The scenario bank has 15 cases. Run `python -m evals.run_evals --limit 15` only when you intend a full live evaluation. Reports are saved as `reports/eval-<run-id>.json`; inspect `passed`, `failed` and each result. The current runner does not return a nonzero process exit code merely because an evaluation fails.
+The scenario bank has 15 cases. Run `python -m evals.run_evals --limit 15` only when you intend a full live evaluation. Reports are saved as `reports/eval-<run-id>.json`; inspect `passed`, `failed` and each result. The runner returns exit code 0 when all evaluated cases pass and exit code 1 when any case fails, after saving the report. A release workflow must invoke the evaluation command and honour that status for it to block promotion.
 
 The latest reviewed run, `cd66626b-d5f3-4390-8567-a31f2a827029`, contains one passing scenario with 8233.63 ms latency. Its checks cover expected terms, forbidden terms, sources and citations. These checks are useful regression signals, not a full semantic correctness assessment.
 
@@ -167,3 +167,6 @@ GitHub Actions installs dependencies, compiles Python, runs tests and builds the
 ## VIII. Interview summary
 
 “I built and deployed a Python tutor API around an existing model. It validates requests, requires a shared access key, checks unsafe-request patterns before model access, and searches official Python documentation. I tested the control flow with fake model clients, verified the Docker container and cloud endpoints, and recorded a live evaluation. I can explain both the controls demonstrated and their limits.”
+
+
+See [production readiness](docs/production-readiness.md) for the proposed pilot requirements and the remaining verification gates.
